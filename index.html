@@ -197,7 +197,7 @@
 
     function loadAllData() {
       // 关键：HTTPS 页面必须请求 HTTPS 接口
-      fetch('https://10010666.xyz:3004/getChassisData')
+      fetch('https://10010666.xyz:3005/getChassisData')
         .then(res => res.json())
         .then(res => {
           const dataList = res || [];
