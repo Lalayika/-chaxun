@@ -22,107 +22,109 @@
       padding-bottom: 20px;
     }
     .top-btn {
-      margin: 20px;
-      padding: 10px 14px;
+      margin: 12px 20px;
+      padding: 10px 16px;
       background: #007aff;
       color: white;
       border: none;
-      border-radius: 8px;
-      font-size: 16px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 500;
     }
     #map {
-      width: 96%;
-      height: 400px;
+      width: 94%;
+      height: 380px;
       margin: 0 auto;
-      border-radius: 12px;
+      border-radius: 16px;
       position: relative;
       z-index: 10;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
     }
     .header {
-      padding: 20px;
+      padding: 16px 20px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      min-height: 80px;
     }
     .title {
-      font-size: 28px;
+      font-size: 19px;
       font-weight: bold;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      color: #222;
     }
     .tool-bar {
       display: flex;
-      gap: 16px;
+      gap: 10px;
       align-items: center;
     }
     .refresh-btn {
       background: #007aff;
       color: #fff;
-      padding: 8px 16px;
+      padding: 8px 12px;
       border: none;
-      border-radius: 8px;
-      font-size: 24px;
+      border-radius: 10px;
+      font-size: 16px;
     }
     .picker-box {
-      padding: 10px 20px;
-      background: #f5f5f5;
-      border-radius: 12px;
-      font-size: 24px;
+      padding: 8px 12px;
+      background: #fff;
+      border-radius: 10px;
+      font-size: 15px;
       color: #333;
-      white-space: nowrap;
-      border: none;
+      border: 1px solid #eee;
     }
     .scroll-box {
-      height: calc(100vh - 500px);
+      height: calc(100vh - 520px);
       overflow-y: auto;
-      padding: 0 20px;
+      padding: 0 16px;
+      margin-top: 8px;
     }
     .card {
       background: #fff;
-      padding: 24px;
-      border-radius: 12px;
-      margin-bottom: 16px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      padding: 18px;
+      border-radius: 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
     }
     .card-title {
-      font-size: 30px;
+      font-size: 17px;
       font-weight: bold;
       color: #222;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
     .distance {
       color: #07c160;
-      margin-left: 10px;
-      white-space: nowrap;
+      font-size: 14px;
+      font-weight: 600;
     }
     .text {
-      font-size: 24px;
-      color: #666;
+      font-size: 14px;
+      color: #555;
       margin: 4px 0;
+      line-height: 1.4;
     }
     .text-red {
-      color: #f56c6c;
+      color: #ff3b30;
+      font-weight: 500;
     }
     .btn-group {
       display: flex;
-      gap: 12px;
-      margin-top: 12px;
+      gap: 10px;
+      margin-top: 14px;
     }
     .nav-btn {
       flex: 1;
-      padding: 10px;
-      border-radius: 8px;
-      font-size: 24px;
+      padding: 12px 10px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 500;
       border: none;
       color: #fff;
     }
     .btn-blue { background: #007aff; }
-    .btn-orange { background: #ff7d00; }
+    .btn-orange { background: #ff9500; }
   </style>
 </head>
 
@@ -133,7 +135,7 @@
   <div class="header">
     <div class="title">📦 园区线路故障机箱位置</div>
     <div class="tool-bar">
-      <button class="refresh-btn" onclick="refreshCloudData()">🔄 刷新</button>
+      <button class="refresh-btn" onclick="refreshCloudData()">🔄</button>
       <select class="picker-box" id="areaSelect" onchange="onAreaChange()">
         <option value="0">全部</option>
         <option value="1">小贵港</option>
@@ -153,16 +155,18 @@
     let areaOptions = ['全部', '小贵港', '桂平市', '平南县'];
     let areaIndex = 0;
     let markers = [];
+    let userMarker = null; // 我的位置点
 
     window.onload = function () {
       map = new AMap.Map('map', {
-        zoom: 14,
+        zoom: 15,
         center: [userLocation.lng, userLocation.lat]
       });
       loadAllData();
       getLocation();
     };
 
+    // 坐标转换
     function outOfChina(lat, lon) {
       return !(lon > 73.66 && lon < 135.05 && lat > 3.86 && lat < 53.55);
     }
@@ -195,8 +199,8 @@
       return { lat: lat + dLat, lon: lon + dLon };
     }
 
+    // 加载数据
     function loadAllData() {
-      // 关键：HTTPS 页面必须请求 HTTPS 接口
       fetch('https://10010666.xyz:3005/getChassisData')
         .then(res => res.json())
         .then(res => {
@@ -233,6 +237,7 @@
         });
     }
 
+    // 区域筛选
     function onAreaChange() {
       const sel = document.getElementById('areaSelect');
       areaIndex = sel.value;
@@ -245,6 +250,7 @@
       refreshDistance();
     }
 
+    // 超时时间计算
     function calcTimeText(overTime) {
       const now = new Date();
       const over = new Date(overTime);
@@ -252,6 +258,7 @@
       return diff >= 0 ? `剩余 ${diff.toFixed(1)} 小时超时` : `已超时 ${Math.abs(diff).toFixed(1)} 小时`;
     }
 
+    // 刷新距离 + 渲染地图标记
     function refreshDistance() {
       const list = chassisData.map(item => {
         const dis = getDistance(userLocation.lat, userLocation.lng, item.lat, item.lng);
@@ -263,31 +270,34 @@
       }).sort((a, b) => a.disNum - b.disNum);
       chassisData = list;
 
+      // 清除旧标记
       if (markers.length) {
         markers.forEach(m => map.remove(m));
         markers = [];
       }
 
+      // 添加故障点标记（缩小图标！）
       list.forEach((item, idx) => {
         const marker = new AMap.Marker({
           position: [item.lng, item.lat],
           icon: 'https://a.amap.com/jsapi_demos/static/demo-center/icons/poi-marker-default.png',
-          width: 32,
-          height: 32
+          width: 24,  // 缩小
+          height: 24
         });
         marker.on('click', () => onMarkerTap(idx));
         map.add(marker);
         markers.push(marker);
 
         marker.setLabel({
-          content: `${item.area1}：${item.faultType}`,
+          content: `${item.faultType}`,
           direction: 'top',
           style: {
-            backgroundColor: '#ff4c4c',
+            backgroundColor: '#ff3b30',
             color: '#fff',
-            fontSize: '12px',
-            padding: '6px',
-            borderRadius: '6px'
+            fontSize: '11px',
+            padding: '4px 6px',
+            borderRadius: '6px',
+            border: 'none'
           }
         });
       });
@@ -295,6 +305,7 @@
       renderList();
     }
 
+    // 渲染列表
     function renderList() {
       const box = document.getElementById('listBox');
       let html = '';
@@ -307,8 +318,9 @@
           </div>
           <div class="text">工单：${item.workNo}</div>
           <div class="text text-red">${item.area1}：${item.faultType}</div>
-          <div class="text text-red">故障类型：${item.status}</div>
-          <div class="text">故障时间：${item.faultTime} ${item.timeText}</div>
+          <div class="text text-red">故障状态：${item.status}</div>
+          <div class="text">故障时间：${item.faultTime}</div>
+          <div class="text">${item.timeText}</div>
           <div class="text">IP PON：${item.ip}</div>
           ${item.mainBoxName ? `<div class="text">主箱：${item.mainBoxName}</div>` : ''}
           
@@ -328,17 +340,20 @@
       box.innerHTML = html;
     }
 
+    // 标记点击
     function onMarkerTap(idx) {
       const item = chassisData[idx];
       if (!item) return;
       goNav(item.lat, item.lng, item.boxName);
     }
 
+    // 高德导航
     function goNav(lat, lng, name) {
       if (!lat || !lng) { alert('坐标缺失'); return; }
       window.open(`https://uri.amap.com/marker?position=${lng},${lat}&name=${name}`, '_blank');
     }
 
+    // 获取定位 + 显示我的位置
     function getLocation() {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(pos => {
@@ -346,8 +361,23 @@
           const wgsLng = pos.coords.longitude;
           const gcj = wgs84ToGcj02(wgsLat, wgsLng);
           userLocation = { lat: gcj.lat, lng: gcj.lon };
+          
+          // 移动地图中心
           map.setCenter([gcj.lon, gcj.lat]);
+
+          // 显示我的位置点（关键修复）
+          if (userMarker) map.remove(userMarker);
+          userMarker = new AMap.Marker({
+            position: [gcj.lon, gcj.lat],
+            icon: 'https://a.amap.com/jsapi/static/img/star.png',
+            width: 22,
+            height: 22,
+            zIndex: 999
+          });
+          map.add(userMarker);
+
           refreshDistance();
+          alert("定位成功！");
         }, err => {
           console.error('定位失败', err);
           alert('定位失败，请开启定位权限');
@@ -357,6 +387,7 @@
       }
     }
 
+    // 计算两点距离
     function getDistance(lat1, lon1, lat2, lon2) {
       const R = 6371e3;
       const φ1 = lat1 * Math.PI / 180;
@@ -367,9 +398,9 @@
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
+    // 刷新数据
     function refreshCloudData() {
       loadAllData();
-      alert('数据已更新');
     }
   </script>
 </body>
