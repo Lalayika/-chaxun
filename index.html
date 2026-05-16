@@ -191,13 +191,13 @@
       magic = 1 - ee * magic * magic;
       const sqrtMagic = Math.sqrt(magic);
       dLat = (dLat * 180.0) / ((a * (1 - ee)) / (magic * sqrtMagic) * Math.PI);
-      dLon = (dLon * 180.0) / (a / sqrtMagic * cos(radLat) * Math.PI);
+      dLon = (dLon * 180.0) / (a / sqrtMagic * Math.cos(radLat) * Math.PI);
       return { lat: lat + dLat, lon: lon + dLon };
     }
 
     function loadAllData() {
-      // 已改回 HTTP 原始地址
-      fetch('http://10010666.xyz:3004/getChassisData')
+      // 关键：HTTPS 页面必须请求 HTTPS 接口
+      fetch('https://10010666.xyz:3004/getChassisData')
         .then(res => res.json())
         .then(res => {
           const dataList = res || [];
@@ -229,7 +229,7 @@
         })
         .catch(err => {
           console.error('加载失败', err);
-          alert('加载失败，请检查后端接口');
+          alert('加载失败，请检查后端HTTPS接口');
         });
     }
 
