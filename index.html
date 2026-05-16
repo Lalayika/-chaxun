@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>故障机箱位置</title>
+  <script>
+    window._AMapSecurityConfig = {
+      securityJsCode: '218970a899bd55e7e15478ee1c053994'
+    }
+  </script>
+  <script type="text/javascript" src="https://webapi.amap.com/maps?v=2.0&key=d52b7d84ef4452a1547e61d6942e3eaf"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: system-ui, sans-serif;
+    }
+    body {
+      background: #f6f7f9;
+      padding-bottom: 20px;
+    }
+    .top-btn {
+      margin: 20px;
+      padding: 10px 14px;
+      background: #007aff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+    #map {
+      width: 96%;
+      height: 400px;
+      margin: 0 auto;
+      border-radius: 12px;
+      position: relative;
+      z-index: 10;
+    }
+    .header {
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 80px;
+    }
+    .title {
+      font-size: 28px;
+      font-weight: bold;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tool-bar {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+    .refresh-btn {
+      background: #007aff;
+      color: #fff;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 24px;
+    }
+    .picker-box {
+      padding: 10px 20px;
+      background: #f5f5f5;
+      border-radius: 12px;
+      font-size: 24px;
+      color: #333;
+      white-space: nowrap;
+      border: none;
+    }
+    .scroll-box {
+      height: calc(100vh - 500px);
+      overflow-y: auto;
+      padding: 0 20px;
+    }
+    .card {
+      background: #fff;
+      padding: 24px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    .card-title {
+      font-size: 30px;
+      font-weight: bold;
+      color: #222;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .distance {
+      color: #07c160;
+      margin-left: 10px;
+      white-space: nowrap;
+    }
+    .text {
+      font-size: 24px;
+      color: #666;
+      margin: 4px 0;
+    }
+    .text-red {
+      color: #f56c6c;
+    }
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .nav-btn {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 24px;
+      border: none;
+      color: #fff;
+    }
+    .btn-blue { background: #007aff; }
+    .btn-orange { background: #ff7d00; }
+  </style>
+</head>
+
+<body>
+  <button class="top-btn" onclick="getLocation()">📍 获取我的位置</button>
+  <div id="map"></div>
+
+  <div class="header">
+    <div class="title">📦 园区线路故障机箱位置</div>
+    <div class="tool-bar">
+      <button class="refresh-btn" onclick="refreshCloudData()">🔄 刷新</button>
+      <select class="picker-box" id="areaSelect" onchange="onAreaChange()">
+        <option value="0">全部</option>
+        <option value="1">小贵港</option>
+        <option value="2">桂平市</option>
+        <option value="3">平南县</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="scroll-box" id="listBox"></div>
+
+  <script>
+    let map = null;
+    let userLocation = { lat: 23.09, lng: 109.61 };
+    let allData = [];
+    let chassisData = [];
+    let areaOptions = ['全部', '小贵港', '桂平市', '平南县'];
+    let areaIndex = 0;
+    let markers = [];
+
+    window.onload = function () {
+      map = new AMap.Map('map', {
+        zoom: 14,
+        center: [userLocation.lng, userLocation.lat]
+      });
+      loadAllData();
+      getLocation();
+    };
+
+    function outOfChina(lat, lon) {
+      return !(lon > 73.66 && lon < 135.05 && lat > 3.86 && lat < 53.55);
+    }
+    function transformLat(x, y) {
+      let ret = -100 + 2 * x + 3 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+      ret += (20 * Math.sin(6 * x * Math.PI) + 20 * Math.sin(2 * x * Math.PI)) * 2 / 3;
+      ret += (20 * Math.sin(y * Math.PI) + 40 * Math.sin(y / 3 * Math.PI)) * 2 / 3;
+      ret += (160 * Math.sin(y / 12 * Math.PI) + 320 * Math.sin(y * Math.PI / 30)) * 2 / 3;
+      return ret;
+    }
+    function transformLon(x, y) {
+      let ret = 300 + x + 2 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+      ret += (20 * Math.sin(6 * x * Math.PI) + 20 * Math.sin(2 * x * Math.PI)) * 2 / 3;
+      ret += (20 * Math.sin(x * Math.PI) + 40 * Math.sin(x / 3 * Math.PI)) * 2 / 3;
+      ret += (150 * Math.sin(x / 12 * Math.PI) + 300 * Math.sin(x / 30 * Math.PI)) * 2 / 3;
+      return ret;
+    }
+    function wgs84ToGcj02(lat, lon) {
+      if (outOfChina(lat, lon)) return { lat, lon };
+      const a = 6378245.0;
+      const ee = 0.00669342162296594323;
+      let dLat = transformLat(lon - 105.0, lat - 35.0);
+      let dLon = transformLon(lon - 105.0, lat - 35.0);
+      const radLat = lat / 180.0 * Math.PI;
+      let magic = Math.sin(radLat);
+      magic = 1 - ee * magic * magic;
+      const sqrtMagic = Math.sqrt(magic);
+      dLat = (dLat * 180.0) / ((a * (1 - ee)) / (magic * sqrtMagic) * Math.PI);
+      dLon = (dLon * 180.0) / (a / sqrtMagic * Math.cos(radLat) * Math.PI);
+      return { lat: lat + dLat, lon: lon + dLon };
+    }
+
+    function loadAllData() {
+      // 关键：HTTPS 页面必须请求 HTTPS 接口
+      fetch('https://10010666.xyz:3004/getChassisData')
+        .then(res => res.json())
+        .then(res => {
+          const dataList = res || [];
+          const list = dataList.map(item => {
+            const timeText = calcTimeText(item.overTime);
+            const boxGcj = wgs84ToGcj02(Number(item.lat), Number(item.lng));
+            let mainLat = null, mainLng = null;
+            if (item.mainBoxLocation) {
+              const arr = item.mainBoxLocation.split(',');
+              if (arr.length === 2) {
+                const rawLng = Number(arr[0]);
+                const rawLat = Number(arr[1]);
+                const mainGcj = wgs84ToGcj02(rawLat, rawLng);
+                mainLat = mainGcj.lat;
+                mainLng = mainGcj.lon;
+              }
+            }
+            return {
+              ...item,
+              timeText,
+              lat: boxGcj.lat,
+              lng: boxGcj.lon,
+              mainLat, mainLng
+            };
+          });
+          allData = list;
+          chassisData = list;
+          refreshDistance();
+        })
+        .catch(err => {
+          console.error('加载失败', err);
+          alert('加载失败，请检查后端HTTPS接口');
+        });
+    }
+
+    function onAreaChange() {
+      const sel = document.getElementById('areaSelect');
+      areaIndex = sel.value;
+      const area = areaOptions[areaIndex];
+      let list = allData;
+      if (area !== '全部') {
+        list = list.filter(item => item.area1 && item.area1.includes(area));
+      }
+      chassisData = list;
+      refreshDistance();
+    }
+
+    function calcTimeText(overTime) {
+      const now = new Date();
+      const over = new Date(overTime);
+      const diff = (over - now) / 1000 / 3600;
+      return diff >= 0 ? `剩余 ${diff.toFixed(1)} 小时超时` : `已超时 ${Math.abs(diff).toFixed(1)} 小时`;
+    }
+
+    function refreshDistance() {
+      const list = chassisData.map(item => {
+        const dis = getDistance(userLocation.lat, userLocation.lng, item.lat, item.lng);
+        return {
+          ...item,
+          distance: dis < 1000 ? `${Math.round(dis)}米` : `${(dis / 1000).toFixed(2)}公里`,
+          disNum: dis
+        };
+      }).sort((a, b) => a.disNum - b.disNum);
+      chassisData = list;
+
+      if (markers.length) {
+        markers.forEach(m => map.remove(m));
+        markers = [];
+      }
+
+      list.forEach((item, idx) => {
+        const marker = new AMap.Marker({
+          position: [item.lng, item.lat],
+          icon: 'https://a.amap.com/jsapi_demos/static/demo-center/icons/poi-marker-default.png',
+          width: 32,
+          height: 32
+        });
+        marker.on('click', () => onMarkerTap(idx));
+        map.add(marker);
+        markers.push(marker);
+
+        marker.setLabel({
+          content: `${item.area1}：${item.faultType}`,
+          direction: 'top',
+          style: {
+            backgroundColor: '#ff4c4c',
+            color: '#fff',
+            fontSize: '12px',
+            padding: '6px',
+            borderRadius: '6px'
+          }
+        });
+      });
+
+      renderList();
+    }
+
+    function renderList() {
+      const box = document.getElementById('listBox');
+      let html = '';
+      chassisData.forEach(item => {
+        html += `
+        <div class="card">
+          <div class="card-title">
+            <span>${item.boxName}</span>
+            <span class="distance">${item.distance}</span>
+          </div>
+          <div class="text">工单：${item.workNo}</div>
+          <div class="text text-red">${item.area1}：${item.faultType}</div>
+          <div class="text text-red">故障类型：${item.status}</div>
+          <div class="text">故障时间：${item.faultTime} ${item.timeText}</div>
+          <div class="text">IP PON：${item.ip}</div>
+          ${item.mainBoxName ? `<div class="text">主箱：${item.mainBoxName}</div>` : ''}
+          
+          <div class="btn-group">
+            ${item.status === '系统判断为主干光缆故障' ? `
+              <button class="nav-btn btn-orange" onclick="goNav(${item.mainLat},${item.mainLng},'${item.mainBoxName}')">导航到主箱</button>
+            ` : `
+              <button class="nav-btn btn-blue" onclick="goNav(${item.lat},${item.lng},'${item.boxName}')">导航到此机箱</button>
+              ${item.mainLat && item.mainLng ? `
+              <button class="nav-btn btn-orange" onclick="goNav(${item.mainLat},${item.mainLng},'${item.mainBoxName}')">导航到主箱</button>
+              ` : ''}
+            `}
+          </div>
+        </div>
+        `;
+      });
+      box.innerHTML = html;
+    }
+
+    function onMarkerTap(idx) {
+      const item = chassisData[idx];
+      if (!item) return;
+      goNav(item.lat, item.lng, item.boxName);
+    }
+
+    function goNav(lat, lng, name) {
+      if (!lat || !lng) { alert('坐标缺失'); return; }
+      window.open(`https://uri.amap.com/marker?position=${lng},${lat}&name=${name}`, '_blank');
+    }
+
+    function getLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+          const wgsLat = pos.coords.latitude;
+          const wgsLng = pos.coords.longitude;
+          const gcj = wgs84ToGcj02(wgsLat, wgsLng);
+          userLocation = { lat: gcj.lat, lng: gcj.lon };
+          map.setCenter([gcj.lon, gcj.lat]);
+          refreshDistance();
+        }, err => {
+          console.error('定位失败', err);
+          alert('定位失败，请开启定位权限');
+        });
+      } else {
+        alert('浏览器不支持定位');
+      }
+    }
+
+    function getDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371e3;
+      const φ1 = lat1 * Math.PI / 180;
+      const φ2 = lat2 * Math.PI / 180;
+      const Δφ = (lat2 - lat1) * Math.PI / 180;
+      const Δλ = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function refreshCloudData() {
+      loadAllData();
+      alert('数据已更新');
+    }
+  </script>
+</body>
+</html>
