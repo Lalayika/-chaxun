@@ -98,7 +98,7 @@
       white-space: nowrap;
     }
     .text {
-      font-size: 12px; /* 缩小一倍 */
+      font-size: 12px;
       color: #666;
       margin: 2px 0;
     }
@@ -150,16 +150,31 @@
     let areaOptions = ['全部', '小贵港', '桂平市', '平南县'];
     let areaIndex = 0;
     let markers = [];
-    let userMarker = null; // 我的位置点
+    let userMarker = null;
 
     window.onload = function () {
       map = new AMap.Map('map', {
         zoom: 15,
         center: [userLocation.lng, userLocation.lat]
       });
+      // 初始化就显示我的位置
+      showUserMarker(userLocation.lng, userLocation.lat);
       loadAllData();
       getLocation();
     };
+
+    // 显示我的位置（固定蓝色圆点）
+    function showUserMarker(lng, lat) {
+      if (userMarker) map.remove(userMarker);
+      userMarker = new AMap.Marker({
+        position: [lng, lat],
+        icon: 'https://a.amap.com/jsapi/static/img/star.png',
+        width: 16,
+        height: 16,
+        zIndex: 999
+      });
+      map.add(userMarker);
+    }
 
     function outOfChina(lat, lon) {
       return !(lon > 73.66 && lon < 135.05 && lat > 3.86 && lat < 53.55);
@@ -249,6 +264,7 @@
     }
 
     function refreshDistance() {
+      // ✅ 修复距离计算：参数顺序正确 lat1,lng1,lat2,lng2
       const list = chassisData.map(item => {
         const dis = getDistance(userLocation.lat, userLocation.lng, item.lat, item.lng);
         return {
@@ -264,17 +280,30 @@
         markers = [];
       }
 
-      // 故障点图标 = 10px
+      // ✅ 故障点 3px + 显示标题标签
       list.forEach((item, idx) => {
         const marker = new AMap.Marker({
           position: [item.lng, item.lat],
           icon: 'https://a.amap.com/jsapi_demos/static/demo-center/icons/poi-marker-default.png',
-          width: 10,  // 你要的 10px
-          height: 10
+          width: 3,   // 极小 3px
+          height: 3
         });
         marker.on('click', () => onMarkerTap(idx));
         map.add(marker);
         markers.push(marker);
+
+        // 显示标题标签
+        marker.setLabel({
+          content: `${item.area1}：${item.faultType}`,
+          direction: 'top',
+          style: {
+            backgroundColor: '#ff4c4c',
+            color: '#fff',
+            fontSize: '12px',
+            padding: '4px',
+            borderRadius: '4px'
+          }
+        });
       });
 
       renderList();
@@ -325,7 +354,7 @@
       window.open(`https://uri.amap.com/marker?position=${lng},${lat}&name=${name}`, '_blank');
     }
 
-    // 获取定位 + 显示我的位置
+    // 获取定位
     function getLocation() {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(pos => {
@@ -334,18 +363,7 @@
           const gcj = wgs84ToGcj02(wgsLat, wgsLng);
           userLocation = { lat: gcj.lat, lng: gcj.lon };
           map.setCenter([gcj.lon, gcj.lat]);
-
-          // 显示我的位置点（蓝色小圆点）
-          if (userMarker) map.remove(userMarker);
-          userMarker = new AMap.Marker({
-            position: [gcj.lon, gcj.lat],
-            icon: 'https://a.amap.com/jsapi/static/img/star.png',
-            width: 16,
-            height: 16,
-            zIndex: 999
-          });
-          map.add(userMarker);
-
+          showUserMarker(gcj.lon, gcj.lat); // 更新我的位置
           refreshDistance();
         }, err => {
           console.error('定位失败', err);
@@ -353,7 +371,8 @@
       }
     }
 
-    function getDistance(lat1, lon1, lon2, lat2) {
+    // ✅ 修复距离函数（参数顺序正确）
+    function getDistance(lat1, lon1, lat2, lon2) {
       const R = 6371e3;
       const φ1 = lat1 * Math.PI / 180;
       const φ2 = lat2 * Math.PI / 180;
